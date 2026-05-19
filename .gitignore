@@ -1,0 +1,12 @@
+# Private key - DO NOT commit
+*.pem
+
+# Build output
+*.crx
+
+# Claude Code config
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
