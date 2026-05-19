@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>书签管理</title>
+  <link rel="stylesheet" href="fonts/icons.css">
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
     :root{--bg-primary:#0f0c29;--bg-secondary:#302b63;--bg-tertiary:#24243e;--glass-bg:rgba(255,255,255,0.08);--glass-border:rgba(255,255,255,0.12);--glass-shadow:0 8px 32px rgba(0,0,0,.2),0 2px 8px rgba(0,0,0,.1);--glass-blur:blur(24px);--text-primary:#f0f0f0;--text-secondary:rgba(255,255,255,.65);--text-muted:rgba(255,255,255,.35);--accent:#7c6aff;--accent2:#b86aff;--accent-light:rgba(124,106,255,.18);--accent-glow:rgba(124,106,255,.25);--accent-gradient:linear-gradient(135deg,#7c6aff,#b86aff);--card-hover-bg:rgba(255,255,255,.06);--scrollbar-track:rgba(255,255,255,.03);--scrollbar-thumb:rgba(255,255,255,.12);--link-hover-bg:rgba(255,255,255,.05);--danger:#ff4757;--card-radius:16px;--panel-radius:14px}
@@ -29,6 +30,8 @@
     .icon-btn:hover::after{opacity:.15}
     .icon-btn:active{transform:scale(.95)}
     .icon-btn span{position:relative;z-index:1}
+    .icon-btn.active{border-color:var(--accent);background:var(--accent-light);box-shadow:0 0 12px var(--accent-glow)}
+    .icon-btn.active span{color:var(--accent)}
     .icon-btn.small{width:28px;height:28px;font-size:13px}
     .bg-settings{position:fixed;top:64px;right:16px;width:340px;padding:16px;border-radius:var(--panel-radius);z-index:200;display:none;backdrop-filter:var(--glass-blur)!important}
     .bg-settings[hidden]{display:none}
@@ -48,12 +51,30 @@
     .btn-secondary:hover{border-color:var(--accent);background:var(--accent-light)}
     .btn-secondary.danger{width:100%;margin-top:6px;text-align:center}
     .btn-secondary.danger:hover{border-color:var(--danger);background:rgba(255,71,87,.15);color:var(--danger)}
-    .app-footer{display:flex;align-items:center;justify-content:center;padding:6px 20px;margin:0 20px 8px;border-radius:10px;flex-shrink:0;font-size:12px;color:var(--text-muted)}
-    .pinned-bookmarks{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 14px;width:100%;border-radius:var(--card-radius)}
-    .pinned-bookmark{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:92px;height:66px;border-radius:9px;text-decoration:none;color:var(--text-primary);font-size:12px;border:1px solid var(--glass-border);transition:all .2s;background:var(--glass-bg)}
+    .app-footer{display:flex;align-items:center;justify-content:center;gap:10px;padding:6px 20px;margin:0 20px 8px;flex-shrink:0;font-size:12px;color:var(--text-muted)}
+    .donate-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:6px 18px;border-radius:8px;border:none;background:var(--accent-gradient);color:#fff;font-size:14px;cursor:pointer;transition:all .25s;font-family:inherit;font-weight:600;box-shadow:0 2px 8px var(--accent-glow)}
+    .donate-btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px var(--accent-glow)}
+    .donate-slogan{text-align:center;font-size:14px;color:var(--text-secondary);line-height:1.6;margin:0 0 16px}
+    .donate-body{padding:20px 24px 24px}
+    .donate-qrs{display:flex;justify-content:center;gap:32px;margin-bottom:16px}
+    .donate-item{display:flex;flex-direction:column;align-items:center;gap:8px}
+    .donate-img{width:260px;height:390px;border-radius:14px;border:1px solid var(--glass-border);object-fit:contain}
+    .donate-label{font-size:14px;font-weight:600;color:var(--text-secondary)}
+    .donate-hint{text-align:center;font-size:13px;color:var(--text-muted);margin:0}
+    .pinned-bookmarks{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;padding:10px 14px;width:100%;border-radius:var(--card-radius)}
+    .pinned-bookmark{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:92px;height:66px;border-radius:9px;text-decoration:none;color:var(--text-primary);font-size:12px;border:1px solid var(--glass-border);transition:padding-top .3s ease,all .2s;background:var(--glass-bg);position:relative}
     .pinned-bookmark:hover{background:var(--accent-light);border-color:var(--accent);transform:translateY(-1px)}
     .pinned-bookmark img{width:20px;height:20px;border-radius:4px;flex-shrink:0}
     .pinned-bookmark span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px;text-align:center;line-height:1.2}
+    .pinned-actions{position:absolute;top:2px;right:2px;display:flex;gap:2px;opacity:0;transition:opacity .25s ease}
+    .edit-mode .pinned-bookmark .pinned-actions{opacity:1}
+    .edit-mode .pinned-bookmark{padding-top:24px;height:80px}
+    .pinned-action-btn{width:20px;height:20px;border-radius:4px;border:none;background:var(--glass-bg);backdrop-filter:blur(4px);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;transition:all .15s}
+    .pinned-action-btn:hover{transform:scale(1.2)}
+    .pinned-action-btn.edit:hover{color:var(--accent);background:var(--accent-light)}
+    .pinned-action-btn.delete:hover{color:var(--danger);background:rgba(255,71,87,.15)}
+    .detail-back-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:none;background:var(--glass-bg);color:var(--text-secondary);font-size:20px;cursor:pointer;transition:all .2s;flex-shrink:0;backdrop-filter:var(--glass-blur)}
+    .detail-back-btn:hover{background:var(--accent-light);color:var(--accent);transform:translateX(-2px)}
     mark{background:var(--accent-light);color:var(--accent);padding:1px 4px;border-radius:3px;font-weight:600}
     .search-match{margin-bottom:12px;padding:14px;width:100%;border-radius:var(--card-radius)}
     .search-match .folder-detail-header{cursor:pointer}
@@ -62,7 +83,7 @@
     .folder-detail-count{font-size:13px;color:var(--text-muted);margin-left:auto}
     .search-sub-ref{padding:8px 12px;margin-top:6px;border-radius:8px;font-size:13px;color:var(--accent);cursor:pointer;transition:background .15s;border:1px dashed var(--accent-light)}
     .search-sub-ref:hover{background:var(--accent-light)}
-    .groups-container{flex:1;padding:10px 14px 8px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:10px;overflow-y:auto;position:relative}
+    .groups-container{flex:1;padding:10px 14px 8px;display:flex;flex-wrap:wrap;align-content:flex-start;justify-content:center;gap:10px;overflow-y:auto;position:relative}
     .groups-container::-webkit-scrollbar{width:5px}
     .groups-container::-webkit-scrollbar-track{background:var(--scrollbar-track);border-radius:3px}
     .groups-container::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb);border-radius:3px}
@@ -81,13 +102,13 @@
     .filter-back-btn:hover{border-color:var(--accent);background:var(--accent-light);padding-left:22px}
     .folder-detail{width:100%;padding:16px;border-radius:var(--card-radius)}
     .folder-detail-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--glass-border)}
-    .folder-detail-icon{font-size:26px}
+    .folder-detail-icon{font-size:20px}
     .folder-detail-title{font-size:18px;font-weight:700}
     .folder-detail-section-title{font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;letter-spacing:.3px;text-transform:uppercase}
     .subfolder-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
     .sub-card{width:140px!important;padding:10px 8px!important}
     .folder-detail-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
-    .bookmark-card{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;text-decoration:none;color:var(--text-primary);transition:all .25s;border:1px solid var(--glass-border)}
+    .bookmark-card{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;text-decoration:none;color:var(--text-primary);transition:all .25s;border:1px solid var(--glass-border);position:relative}
     .bookmark-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.12)}
     .bookmark-card-favicon{width:20px;height:20px;border-radius:5px;flex-shrink:0}
     .bookmark-card-info{flex:1;min-width:0}
@@ -121,24 +142,79 @@
     body[data-bg=dark]{background:#0a0a0f}
     body[data-bg=light]{background:#f5f5f0}
     body.has-bg-image{background:none!important}
-    @media(max-width:768px){.top-bar{padding:8px 12px;margin:8px 8px 0;gap:8px;flex-wrap:wrap}.top-bar .app-title{font-size:15px}.search-box{order:3;flex-basis:100%;max-width:100%}.bg-settings{right:12px;width:calc(100% - 24px)}.groups-container{padding:8px 8px 6px;gap:8px;justify-content:center}.group-card{width:140px;padding:10px 8px}.group-preview{width:calc(100vw - 24px);max-height:85vh}.app-footer{margin:0 8px 8px}}
+    @media(max-width:768px){.top-bar{padding:8px 12px;margin:8px 8px 0;gap:8px;flex-wrap:wrap}.top-bar .app-title{font-size:15px}.search-box{order:3;flex-basis:100%;max-width:100%}.bg-settings{right:12px;width:calc(100% - 24px)}.groups-container{padding:8px 8px 6px;gap:8px;justify-content:center}.group-card{width:140px;padding:10px 8px}.group-preview{width:calc(100vw - 24px);max-height:85vh}.app-footer{margin:0 8px 8px}.add-fab{bottom:20px;right:20px;width:44px;height:44px;font-size:22px}}
+    .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:300;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease}
+    .modal-overlay[hidden]{display:none}
+    .modal-overlay:not([hidden]){display:flex}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    .modal{width:420px;max-width:90vw;padding:0;border-radius:var(--panel-radius);overflow:hidden;animation:modalIn .25s cubic-bezier(.34,1.56,.64,1)}
+    @keyframes modalIn{from{opacity:0;transform:scale(.9) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+    .modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--glass-border);font-size:16px;font-weight:700}
+    .modal-body{padding:20px}
+    .modal-footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid var(--glass-border)}
+    .form-group{margin-bottom:16px}
+    .form-group:last-child{margin-bottom:0}
+    .form-group label{display:block;font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:6px}
+    .form-input,.form-select{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--glass-border);background:var(--glass-bg);color:var(--text-primary);font-size:14px;outline:none;transition:border-color .2s;font-family:inherit}
+    .form-input:focus,.form-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light)}
+    .form-select{cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23888' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+    .form-select option{background:var(--bg-secondary);color:var(--text-primary)}
+    .form-select:disabled{opacity:.6;cursor:not-allowed}
+    .btn-primary{padding:10px 22px;border-radius:8px;border:none;background:var(--accent-gradient);color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+    .btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 16px var(--accent-glow)}
+    .btn-primary:active{transform:scale(.97)}
+    .bookmark-actions{position:absolute;top:4px;right:4px;display:flex;align-items:center;gap:4px;opacity:0;transition:opacity .2s}
+    .edit-mode .bookmark-card .bookmark-actions{opacity:1}
+    .edit-mode .bookmark-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.12);border-color:var(--accent)}
+    .edit-mode .bookmark-card{padding-top:32px}
+    .bookmark-action-btn{width:26px;height:26px;border-radius:6px;border:1px solid var(--glass-border);background:var(--glass-bg);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;backdrop-filter:var(--glass-blur);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+    .bookmark-action-btn:hover{transform:scale(1.15)}
+    .bookmark-action-btn.edit:hover{color:var(--accent);background:var(--accent-light)}
+    .bookmark-action-btn.delete:hover{color:var(--danger);background:rgba(255,71,87,.15)}
+    .delete-toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);z-index:400;display:flex;align-items:center;gap:14px;padding:12px 20px;border-radius:12px;font-size:14px;animation:toastIn .3s cubic-bezier(.34,1.56,.64,1)}
+    .delete-toast[hidden]{display:none}
+    .delete-toast:not([hidden]){display:flex}
+    @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(20px) scale(.95)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+    .delete-toast-actions{display:flex;gap:6px}
+    .btn-danger-sm{padding:6px 14px;border-radius:6px;border:1px solid var(--danger);background:rgba(255,71,87,.15);color:var(--danger);font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+    .btn-danger-sm:hover{background:var(--danger);color:#fff}
+    .btn-secondary-sm{padding:6px 14px;border-radius:6px;border:1px solid var(--glass-border);background:var(--glass-bg);color:var(--text-primary);font-size:13px;cursor:pointer;transition:all .2s;font-family:inherit}
+    .btn-secondary-sm:hover{border-color:var(--accent);background:var(--accent-light)}
+    .add-fab{position:fixed;bottom:28px;right:28px;width:48px;height:48px;border-radius:50%;border:none;background:var(--accent-gradient);color:#fff;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px var(--accent-glow);transition:all .25s cubic-bezier(.34,1.56,.64,1);z-index:150}
+    .add-fab:hover{transform:scale(1.1) rotate(90deg);box-shadow:0 6px 28px var(--accent-glow)}
+    .add-fab:active{transform:scale(.95)}
+    .add-folder-btn{padding:6px 14px;border-radius:8px;border:1px dashed var(--glass-border);background:transparent;color:var(--accent);font-size:13px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:5px;font-family:inherit;font-weight:500;margin-left:auto}
+    .add-folder-btn:hover{border-color:var(--accent);background:var(--accent-light)}
+    .group-card-delete{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:4px;border:none;background:var(--glass-bg);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;opacity:0;transition:opacity .2s;backdrop-filter:var(--glass-blur);z-index:2}
+    .group-card-delete:hover{color:var(--danger);background:rgba(255,71,87,.15);transform:scale(1.2)}
+    .edit-mode .group-card .group-card-delete{opacity:1}
+    .edit-mode .group-card{padding-top:20px}
   </style>
 </head>
 <body data-theme="light" id="appBody">
   <div id="app">
     <!-- Top Bar -->
     <header class="top-bar glass" id="topBar">
-      <h1 class="app-title">📑 书签管理</h1>
+      <h1 class="app-title"><i class="icon-bookmark" style="font-size:1.1em"></i> 书签管理</h1>
       <div class="search-box">
-        <span class="search-icon">🔍</span>
+        <span class="search-icon"><i class="icon-search"></i></span>
         <input type="text" id="searchInput" placeholder="搜索书签名称或分组..." spellcheck="false">
       </div>
       <div class="top-bar-actions">
+        <button id="editToggle" class="icon-btn" title="编辑模式">
+          <span id="editModeIcon"><i class="icon-edit"></i></span>
+        </button>
         <button id="themeToggle" class="icon-btn" title="切换主题">
-          <span id="themeIcon">🌙</span>
+          <span id="themeIcon"><i class="icon-moon"></i></span>
         </button>
         <button id="bgSettingsBtn" class="icon-btn" title="背景设置">
-          <span>🖼️</span>
+          <span><i class="icon-image"></i></span>
+        </button>
+        <button id="addFab" class="icon-btn" title="添加书签">
+          <span><i class="icon-plus"></i></span>
+        </button>
+        <button id="addFolderBtn" class="icon-btn" title="新建分组">
+          <span><i class="icon-folder-plus"></i></span>
         </button>
       </div>
     </header>
@@ -147,7 +223,7 @@
     <div id="bgSettings" class="bg-settings glass" hidden>
       <div class="bg-settings-header">
         <span>背景设置</span>
-        <button id="bgSettingsClose" class="icon-btn small">✕</button>
+        <button id="bgSettingsClose" class="icon-btn small"><i class="icon-close"></i></button>
       </div>
       <div class="bg-options">
         <button class="bg-preset active" data-bg="default">默认渐变</button>
@@ -162,8 +238,8 @@
         <div class="bg-upload-row">
           <input type="text" id="bgUrlInput" placeholder="输入图片 URL 或选择文件...">
           <input type="file" id="bgFileInput" accept="image/*" hidden>
-          <button id="bgFileBtn" class="btn-secondary">📁 选择文件</button>
-          <button id="bgApplyUrl" class="btn-secondary">✓ 应用</button>
+          <button id="bgFileBtn" class="btn-secondary"><i class="icon-folder-open"></i> 选择文件</button>
+          <button id="bgApplyUrl" class="btn-secondary"><i class="icon-check"></i> 应用</button>
         </div>
       </div>
       <button id="bgResetBtn" class="btn-secondary danger">重置背景</button>
@@ -175,14 +251,96 @@
     </main>
 
     <!-- Footer Stats -->
-    <footer class="app-footer glass" id="appFooter">
+    <footer class="app-footer" id="appFooter">
       <span id="statsTotal">加载中...</span>
+      <button id="donateBtn" class="donate-btn" title="打赏支持"><i class="icon-heart"></i> 打赏支持</button>
     </footer>
+  </div>
+
+  <!-- Donate Modal -->
+  <div id="donateModal" class="modal-overlay" hidden>
+    <div class="modal glass" style="width:640px">
+      <div class="modal-header">
+        <span><i class="icon-heart" style="color:var(--danger)"></i> 请作者喝杯咖啡</span>
+        <button id="donateModalClose" class="icon-btn small"><i class="icon-close"></i></button>
+      </div>
+      <div class="modal-body donate-body">
+        <p class="donate-slogan">写代码不易，你的支持是最大的动力！<br>来都来了，扫码随缘打个赏吧 <i class="icon-heart" style="color:var(--danger)"></i></p>
+        <div class="donate-qrs">
+          <div class="donate-item">
+            <img src="../pay/wechat.png" alt="微信支付" class="donate-img">
+            <span class="donate-label">微信扫一扫</span>
+          </div>
+          <div class="donate-item">
+            <img src="../pay/alipay.png" alt="支付宝" class="donate-img">
+            <span class="donate-label">支付宝扫一扫</span>
+          </div>
+        </div>
+        <p class="donate-hint">随缘打赏，多少都是爱 <i class="icon-heart" style="color:var(--danger);font-size:1.1em"></i></p>
+      </div>
+    </div>
   </div>
 
   <!-- Hover Preview Container -->
   <div id="previewContainer" class="preview-container">
     <div id="activePreview" class="group-preview glass"></div>
+  </div>
+
+  <!-- Bookmark Add/Edit Modal -->
+  <div id="bookmarkModal" class="modal-overlay" hidden>
+    <div class="modal glass">
+      <div class="modal-header">
+        <span id="modalTitle">添加书签</span>
+        <button id="modalClose" class="icon-btn small"><i class="icon-close"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="modalFolder">所在分组</label>
+          <select id="modalFolder" class="form-select"></select>
+        </div>
+        <div class="form-group">
+          <label for="modalTitleInput">书签名称</label>
+          <input type="text" id="modalTitleInput" class="form-input" placeholder="输入书签名称..." spellcheck="false">
+        </div>
+        <div class="form-group">
+          <label for="modalUrlInput">书签地址</label>
+          <input type="url" id="modalUrlInput" class="form-input" placeholder="https://example.com">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="modalCancel" class="btn-secondary">取消</button>
+        <button id="modalSave" class="btn-primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Folder Modal -->
+  <div id="folderModal" class="modal-overlay" hidden>
+    <div class="modal glass" style="width:340px">
+      <div class="modal-header">
+        <span>新建分组</span>
+        <button id="folderModalClose" class="icon-btn small"><i class="icon-close"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="folderNameInput">分组名称</label>
+          <input type="text" id="folderNameInput" class="form-input" placeholder="输入分组名称..." spellcheck="false">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="folderModalCancel" class="btn-secondary">取消</button>
+        <button id="folderModalSave" class="btn-primary">创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Toast -->
+  <div id="deleteToast" class="delete-toast glass" hidden>
+    <span class="delete-toast-msg">确定删除该书签？</span>
+    <div class="delete-toast-actions">
+      <button id="deleteConfirm" class="btn-danger-sm">删除</button>
+      <button id="deleteCancel" class="btn-secondary-sm">取消</button>
+    </div>
   </div>
 
   <script src="app.js"></script>

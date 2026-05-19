@@ -2,10 +2,12 @@
 let allFolders = [];
 let allBookmarks = [];
 let currentFilter = 'all';
-let theme = 'light';
+let theme = 'auto';
 let bgPreset = 'default';
 let bgImageUrl = null;
 let searchQuery = '';
+let editMode = false;
+let navStack = []; // navigation history for folder back button
 
 /* ===== Initialize ===== */
 function init() {
@@ -13,6 +15,10 @@ function init() {
     loadBookmarks();
     setupEventListeners();
     applyTheme();
+    // Follow system theme changes if using auto
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (theme === 'auto') applyTheme();
+    });
   });
 }
 
@@ -26,11 +32,11 @@ if (document.readyState === 'loading') {
 async function loadSettings() {
   try {
     const result = await chrome.storage.local.get(['theme', 'bgPreset', 'bgImageUrl']);
-    theme = result.theme || 'light';
+    theme = result.theme || 'auto';
     bgPreset = result.bgPreset || 'default';
     bgImageUrl = result.bgImageUrl || null;
   } catch {
-    theme = localStorage.getItem('bm_theme') || 'light';
+    theme = localStorage.getItem('bm_theme') || 'auto';
     bgPreset = localStorage.getItem('bm_bgPreset') || 'default';
     bgImageUrl = localStorage.getItem('bm_bgImageUrl') || null;
   }
@@ -99,7 +105,7 @@ function renderGroups(filterFolders) {
   const folders = filterFolders || allFolders;
 
   if (folders.length === 0) {
-    container.innerHTML = '<div class="loading">📭 没有找到匹配的书签</div>';
+    container.innerHTML = '<div class="loading">' + icon('inbox') + ' 没有找到匹配的书签</div>';
     return;
   }
 
@@ -124,7 +130,14 @@ function renderGroups(filterFolders) {
           link.className = 'pinned-bookmark';
           link.href = bm.url;
           link.target = '_blank';
-          link.innerHTML = '<img src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(url.hostname) + '&sz=32" alt=""> <span>' + esc(bm.title || url.hostname) + '</span>';
+          link.dataset.bmId = bm.id;
+          link.dataset.bmTitle = bm.title || url.hostname;
+          link.dataset.bmUrl = bm.url;
+          link.innerHTML = '<img src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(url.hostname) + '&sz=32" alt=""> <span>' + esc(bm.title || url.hostname) + '</span>'
+            + '<div class="pinned-actions">'
+            + '<button class="pinned-action-btn edit" title="编辑">' + icon('edit') + '</button>'
+            + '<button class="pinned-action-btn delete" title="删除">' + icon('trash') + '</button>'
+            + '</div>';
           ps.appendChild(link);
         } catch {}
       }
@@ -138,14 +151,16 @@ function renderGroups(filterFolders) {
       card.className = 'group-card glass';
       card.dataset.folderId = folder.id;
       card.innerHTML = `
-        <div class="group-card-icon">📁</div>
+        <div class="group-card-icon">${icon('folder')}</div>
         <div class="group-card-title">${esc(folder.title)}</div>
         <div class="group-card-count">${folder.bookmarks.length} 个书签${folder.subFolders.length ? ' · ' + folder.subFolders.length + ' 个子分组' : ''}</div>
+        <button class="group-card-delete" title="删除分组">${icon('trash')}</button>
       `;
       card.addEventListener('mouseenter', () => showPreview(folder, card));
       card.addEventListener('mouseleave', () => scheduleHidePreview());
       card.addEventListener('click', () => {
         currentFilter = folder.id;
+        navStack = [];
         updateActiveFilter();
         renderFilteredView(folder);
       });
@@ -161,7 +176,7 @@ function renderGroups(filterFolders) {
         detail.className = 'folder-detail glass search-match';
         detail.dataset.folderId = folder.id;
         let html = '<div class="folder-detail-header" style="cursor:pointer" data-folder-id="' + folder.id + '">'
-          + '<span class="folder-detail-icon">📁</span>'
+          + '<span class="folder-detail-icon">' + icon('folder') + '</span>'
           + '<span class="folder-detail-title">' + esc(folder.title) + '</span>'
           + '<span class="folder-detail-count">' + folder.bookmarks.length + ' 个书签</span>'
           + '</div>';
@@ -172,11 +187,19 @@ function renderGroups(filterFolders) {
           if (bm.title.toLowerCase().includes(q)) {
             try {
               const url = new URL(bm.url);
-              html += '<a href="' + esc(bm.url) + '" class="bookmark-card glass" target="_blank">'
+              html += '<a href="' + esc(bm.url) + '" class="bookmark-card glass" target="_blank"'
+                + ' data-bm-id="' + esc(bm.id) + '"'
+                + ' data-bm-title="' + esc(bm.title) + '"'
+                + ' data-bm-url="' + esc(bm.url) + '"'
+                + ' data-folder-id="' + folder.id + '">'
                 + '<img class="bookmark-card-favicon" src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(url.hostname) + '&sz=32" alt="">'
                 + '<div class="bookmark-card-info">'
                 + '<div class="bookmark-card-title">' + highlightText(esc(bm.title), esc(q)) + '</div>'
                 + '<div class="bookmark-card-url">' + esc(url.hostname) + '</div>'
+                + '</div>'
+                + '<div class="bookmark-actions">'
+                + '<button class="bookmark-action-btn edit" title="编辑">' + icon('edit') + '</button>'
+                + '<button class="bookmark-action-btn delete" title="删除">' + icon('trash') + '</button>'
                 + '</div></a>';
             } catch {}
           }
@@ -187,7 +210,7 @@ function renderGroups(filterFolders) {
           const sf = allFolders.find(f => f.id === sub.id);
           if (sf && (sub.title.toLowerCase().includes(q) || hasMatchingBookmarks(sf))) {
             html += '<div class="search-sub-ref" data-folder-id="' + sub.id + '">'
-              + '📂 ' + esc(sub.title) + ' →</div>';
+              + icon('folder-open') + ' ' + esc(sub.title) + ' →</div>';
           }
         }
 
@@ -215,14 +238,16 @@ function renderGroups(filterFolders) {
         card.className = 'group-card glass search-matched-card';
         card.dataset.folderId = folder.id;
         card.innerHTML = `
-          <div class="group-card-icon">📁</div>
+          <div class="group-card-icon">${icon('folder')}</div>
           <div class="group-card-title">${highlightText(esc(folder.title), esc(searchQuery))}</div>
           <div class="group-card-count">${folder.bookmarks.length} 个书签${folder.subFolders.length ? ' · ' + folder.subFolders.length + ' 个子分组' : ''}</div>
+          <button class="group-card-delete" title="删除分组">${icon('trash')}</button>
         `;
         card.addEventListener('mouseenter', () => showPreview(folder, card));
         card.addEventListener('mouseleave', () => scheduleHidePreview());
         card.addEventListener('click', () => {
           currentFilter = folder.id;
+          navStack = [];
           updateActiveFilter();
           renderFilteredView(folder);
         });
@@ -235,25 +260,37 @@ function renderGroups(filterFolders) {
 function renderFilteredView(folder) {
   const container = document.getElementById('groupsContainer');
   container.innerHTML = '';
-
-  const backBtn = document.createElement('button');
-  backBtn.className = 'filter-back-btn glass';
-  backBtn.innerHTML = '← 返回全部分组';
-  backBtn.addEventListener('click', () => {
-    currentFilter = 'all';
-    updateActiveFilter();
-    renderGroups();
-  });
-  container.appendChild(backBtn);
+  // Close hover preview when entering a folder
+  clearTimeout(previewTimeout);
+  document.getElementById('activePreview').classList.remove('visible');
+  document.querySelectorAll('.group-card.active-preview').forEach(c => c.classList.remove('active-preview'));
 
   const detail = document.createElement('div');
   detail.className = 'folder-detail glass';
   detail.innerHTML = `
     <div class="folder-detail-header">
-      <span class="folder-detail-icon">📁</span>
+      <button class="detail-back-btn" title="返回全部分组">${icon('arrow-left')}</button>
+      <span class="folder-detail-icon">${icon('folder')}</span>
       <span class="folder-detail-title">${esc(folder.title)}</span>
+      <button class="add-folder-btn" data-folder-id="${folder.id}">+ 添加书签</button>
     </div>
   `;
+
+  detail.querySelector('.detail-back-btn').addEventListener('click', () => {
+    if (navStack.length > 0) {
+      const parentId = navStack.pop();
+      const parent = allFolders.find(f => f.id === parentId);
+      if (parent) {
+        currentFilter = parentId;
+        updateActiveFilter();
+        renderFilteredView(parent);
+        return;
+      }
+    }
+    currentFilter = 'all';
+    updateActiveFilter();
+    renderGroups();
+  });
 
   if (folder.subFolders.length > 0) {
     const subsDiv = document.createElement('div');
@@ -270,14 +307,14 @@ function renderFilteredView(folder) {
       const sc = document.createElement('div');
       sc.className = 'group-card glass sub-card';
       sc.innerHTML = `
-        <div class="group-card-icon">📂</div>
+        <div class="group-card-icon">${icon('folder-open')}</div>
         <div class="group-card-title">${esc(sub.title)}</div>
         <div class="group-card-count">${sf ? sf.bookmarks.length : 0} 个书签</div>
       `;
       if (sf) {
         sc.addEventListener('mouseenter', () => showPreview(sf, sc));
         sc.addEventListener('mouseleave', () => scheduleHidePreview());
-        sc.addEventListener('click', (e) => { e.stopPropagation(); renderFilteredView(sf); });
+        sc.addEventListener('click', (e) => { e.stopPropagation(); navStack.push(folder.id); renderFilteredView(sf); });
       }
       subGrid.appendChild(sc);
     }
@@ -285,33 +322,35 @@ function renderFilteredView(folder) {
     detail.appendChild(subsDiv);
   }
 
-  if (folder.bookmarks.length > 0) {
-    const linksDiv = document.createElement('div');
-    linksDiv.className = 'folder-detail-links';
-    const lt = document.createElement('div');
-    lt.className = 'folder-detail-section-title';
-    lt.textContent = '书签';
-    linksDiv.appendChild(lt);
+  const linksDiv = document.createElement('div');
+  linksDiv.className = 'folder-detail-links';
 
-    for (const bm of folder.bookmarks) {
-      try {
-        const url = new URL(bm.url);
-        const el = document.createElement('a');
-        el.className = 'bookmark-card glass';
-        el.href = bm.url;
-        el.target = '_blank';
-        el.innerHTML = `
-          <img class="bookmark-card-favicon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(url.hostname)}&sz=32" alt="">
-          <div class="bookmark-card-info">
-            <div class="bookmark-card-title">${esc(bm.title)}</div>
-            <div class="bookmark-card-url">${esc(url.hostname)}</div>
-          </div>
-        `;
-        linksDiv.appendChild(el);
-      } catch { /* invalid url */ }
-    }
-    detail.appendChild(linksDiv);
+  for (const bm of folder.bookmarks) {
+    try {
+      const url = new URL(bm.url);
+      const el = document.createElement('a');
+      el.className = 'bookmark-card glass';
+      el.href = bm.url;
+      el.target = '_blank';
+      el.dataset.bmId = bm.id;
+      el.dataset.bmTitle = bm.title;
+      el.dataset.bmUrl = bm.url;
+      el.dataset.folderId = folder.id;
+      el.innerHTML = `
+        <img class="bookmark-card-favicon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(url.hostname)}&sz=32" alt="">
+        <div class="bookmark-card-info">
+          <div class="bookmark-card-title">${esc(bm.title)}</div>
+          <div class="bookmark-card-url">${esc(url.hostname)}</div>
+        </div>
+        <div class="bookmark-actions">
+          <button class="bookmark-action-btn edit" title="编辑">${icon('edit')}</button>
+          <button class="bookmark-action-btn delete" title="删除">${icon('trash')}</button>
+        </div>
+      `;
+      linksDiv.appendChild(el);
+    } catch { /* invalid url */ }
   }
+  detail.appendChild(linksDiv);
 
   container.appendChild(detail);
 }
@@ -333,7 +372,7 @@ function showPreview(folder, card) {
   document.querySelectorAll('.group-card.active-preview').forEach(c => c.classList.remove('active-preview'));
   card.classList.add('active-preview');
 
-  let html = '<div class="group-preview-title">📁 ' + esc(folder.title) + '</div>';
+  let html = '<div class="group-preview-title">' + icon('folder') + ' ' + esc(folder.title) + '</div>';
 
   if (folder.bookmarks.length > 0) {
     html += '<div class="group-preview-links">';
@@ -358,7 +397,7 @@ function showPreview(folder, card) {
       const sf = allFolders.find(f => f.id === sub.id);
       html += '<div class="subfolder-item">'
         + '<div class="subfolder-header" data-sub-id="' + sub.id + '">'
-        + '<span class="arrow">▶</span> 📂 ' + esc(sub.title) + (sf ? ' (' + sf.bookmarks.length + ')' : '')
+        + '<span class="arrow">▶</span> ' + icon('folder-open') + ' ' + esc(sub.title) + (sf ? ' (' + sf.bookmarks.length + ')' : '')
         + '</div>'
         + '<div class="subfolder-content">'
         + (sf ? buildSubLinks(sf) : '<div class="group-preview-empty">空</div>')
@@ -437,26 +476,42 @@ function buildSubLinks(folder) {
 function scheduleHidePreview() {
   previewTimeout = setTimeout(() => {
     const p = document.getElementById('activePreview');
-    if (p && !p.matches(':hover')) p.classList.remove('visible');
+    if (p && !p.matches(':hover')) {
+      p.classList.remove('visible');
+      document.querySelectorAll('.group-card.active-preview').forEach(c => c.classList.remove('active-preview'));
+    }
   }, 200);
 }
 
 document.getElementById('activePreview').addEventListener('mouseenter', () => clearTimeout(previewTimeout));
 document.getElementById('activePreview').addEventListener('mouseleave', () => {
   document.getElementById('activePreview').classList.remove('visible');
+  document.querySelectorAll('.group-card.active-preview').forEach(c => c.classList.remove('active-preview'));
 });
 
 /* ===== Theme ===== */
 function applyTheme() {
-  document.getElementById('appBody').dataset.theme = theme;
-  document.getElementById('themeIcon').textContent = theme === 'dark' ? '☀️' : '🌙';
+  const resolved = theme === 'auto'
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : theme;
+  document.getElementById('appBody').dataset.theme = resolved;
+  document.getElementById('themeIcon').innerHTML = resolved === 'dark' ? icon('sun') : icon('moon');
   applyBackground();
 }
 
 function toggleTheme() {
-  theme = theme === 'dark' ? 'light' : 'dark';
+  theme = theme === 'auto'
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark')
+    : (theme === 'dark' ? 'light' : 'dark');
   applyTheme();
   saveSettings();
+}
+
+function toggleEditMode() {
+  editMode = !editMode;
+  document.getElementById('app').classList.toggle('edit-mode', editMode);
+  document.getElementById('editModeIcon').innerHTML = editMode ? icon('check') : icon('edit');
+  document.getElementById('editToggle').classList.toggle('active', editMode);
 }
 
 /* ===== Background ===== */
@@ -534,7 +589,7 @@ function performSearch() {
 
 /* ===== Stats ===== */
 function updateStats() {
-  document.getElementById('statsTotal').textContent = '📊 共 ' + allFolders.length + ' 个分组 · ' + allBookmarks.length + ' 个书签';
+  document.getElementById('statsTotal').textContent = '共 ' + allFolders.length + ' 个分组 · ' + allBookmarks.length + ' 个书签';
 }
 
 function updateActiveFilter() {
@@ -545,6 +600,7 @@ function updateActiveFilter() {
 
 /* ===== Events ===== */
 function setupEventListeners() {
+  document.getElementById('editToggle').addEventListener('click', toggleEditMode);
   document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
   // Delegated error handler for favicon images (CSP-safe, no inline onerror)
@@ -596,6 +652,143 @@ function setupEventListeners() {
       document.getElementById('bgSettings').hidden = true;
       document.getElementById('searchInput').blur();
       document.getElementById('activePreview').classList.remove('visible');
+      document.getElementById('donateModal').hidden = true;
+      closeModal();
+      closeFolderModal();
+      hideDeleteToast();
+    }
+  });
+
+  // --- Modal events ---
+  document.getElementById('modalClose').addEventListener('click', closeModal);
+  document.getElementById('modalCancel').addEventListener('click', closeModal);
+  document.getElementById('modalSave').addEventListener('click', saveBookmark);
+  document.getElementById('bookmarkModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeModal();
+  });
+  document.getElementById('modalTitleInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('modalUrlInput').focus();
+  });
+  document.getElementById('modalUrlInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveBookmark();
+  });
+  // Reset input border color on focus
+  document.getElementById('modalTitleInput').addEventListener('focus', () => {
+    document.getElementById('modalTitleInput').style.borderColor = '';
+  });
+  document.getElementById('modalUrlInput').addEventListener('focus', () => {
+    document.getElementById('modalUrlInput').style.borderColor = '';
+  });
+
+  // --- Delete toast events ---
+  document.getElementById('deleteConfirm').addEventListener('click', () => {
+    const toast = document.getElementById('deleteToast');
+    const folderId = toast.dataset.folderId;
+    const bmId = toast.dataset.bmId;
+    if (folderId) deleteFolder(folderId);
+    else if (bmId) deleteBookmark(bmId);
+  });
+  document.getElementById('deleteCancel').addEventListener('click', hideDeleteToast);
+
+  // --- FAB ---
+  document.getElementById('addFab').addEventListener('click', () => openAddModal());
+
+  // --- Add Folder ---
+  document.getElementById('addFolderBtn').addEventListener('click', openAddFolderModal);
+  document.getElementById('folderModalClose').addEventListener('click', closeFolderModal);
+  document.getElementById('folderModalCancel').addEventListener('click', closeFolderModal);
+  document.getElementById('folderModalSave').addEventListener('click', createFolder);
+  document.getElementById('folderModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeFolderModal();
+  });
+  document.getElementById('folderNameInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') createFolder();
+  });
+
+  // --- Donate ---
+  document.getElementById('donateBtn').addEventListener('click', () => {
+    document.getElementById('donateModal').hidden = false;
+  });
+  document.getElementById('donateModalClose').addEventListener('click', () => {
+    document.getElementById('donateModal').hidden = true;
+  });
+  document.getElementById('donateModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) document.getElementById('donateModal').hidden = true;
+  });
+
+
+  // --- Delegated click handler for bookmark management ---
+  document.getElementById('groupsContainer').addEventListener('click', (e) => {
+    // Pinned bookmark action buttons (edit/delete)
+    const pinnedAction = e.target.closest('.pinned-action-btn');
+    if (pinnedAction) {
+      e.preventDefault();
+      const pinned = pinnedAction.closest('.pinned-bookmark');
+      if (!pinned) return;
+      const bmId = pinned.dataset.bmId;
+      const title = pinned.dataset.bmTitle;
+      const url = pinned.dataset.bmUrl;
+      if (pinnedAction.classList.contains('edit') && bmId) {
+        openEditModal(bmId, title, url);
+      } else if (pinnedAction.classList.contains('delete') && bmId) {
+        showDeleteToast(bmId, title);
+      }
+      return;
+    }
+
+    // "add-folder-btn" inside folder detail
+    const addBtn = e.target.closest('.add-folder-btn');
+    if (addBtn) {
+      e.preventDefault();
+      const folderId = addBtn.dataset.folderId;
+      if (folderId) openAddModal(folderId);
+      return;
+    }
+
+    // Group card delete button in edit mode
+    const groupDeleteBtn = e.target.closest('.group-card-delete');
+    if (groupDeleteBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const groupCard = groupDeleteBtn.closest('.group-card');
+      if (groupCard) {
+        const folderId = groupCard.dataset.folderId;
+        const folder = allFolders.find(f => f.id === folderId);
+        if (folder) {
+          const hasBookmarks = folder.bookmarks.length > 0 || folder.subFolders.some(sub => {
+            const sf = allFolders.find(f => f.id === sub.id);
+            return sf && sf.bookmarks.length > 0;
+          });
+          if (hasBookmarks) {
+            alert('请先删除分组内的所有书签，再删除分组。');
+            return;
+          }
+          showDeleteFolderToast(folderId, folder.title);
+        }
+      }
+      return;
+    }
+
+    const card = e.target.closest('.bookmark-card');
+    if (!card) return;
+
+    const editBtn = e.target.closest('.bookmark-action-btn.edit');
+    const deleteBtn = e.target.closest('.bookmark-action-btn.delete');
+
+    if (editBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const bmId = card.dataset.bmId;
+      const title = card.dataset.bmTitle;
+      const url = card.dataset.bmUrl;
+      const folderId = card.dataset.folderId;
+      if (bmId) openEditModal(bmId, title, url, folderId);
+    } else if (deleteBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const bmId = card.dataset.bmId;
+      const title = card.dataset.bmTitle;
+      if (bmId) showDeleteToast(bmId, title);
     }
   });
 }
@@ -655,6 +848,214 @@ function renderDemoData() {
   allBookmarks = allFolders.flatMap(f => f.bookmarks.map(b => ({ ...b, parentTitle: f.title })));
   updateStats();
   renderGroups();
+}
+
+/* ===== Bookmark CRUD ===== */
+let modalMode = 'add'; // 'add' or 'edit'
+let editingBookmarkId = null;
+let editingFolderId = null;
+
+function openAddModal(folderId) {
+  modalMode = 'add';
+  editingBookmarkId = null;
+  editingFolderId = folderId || null;
+  document.getElementById('modalTitle').textContent = '添加书签';
+  document.getElementById('modalTitleInput').value = '';
+  document.getElementById('modalUrlInput').value = '';
+  populateFolderSelect(folderId);
+  document.getElementById('bookmarkModal').hidden = false;
+  setTimeout(() => document.getElementById('modalTitleInput').focus(), 100);
+}
+
+function openEditModal(bmId, title, url, folderId) {
+  modalMode = 'edit';
+  editingBookmarkId = bmId;
+  editingFolderId = folderId;
+  document.getElementById('modalTitle').textContent = '编辑书签';
+  document.getElementById('modalTitleInput').value = title;
+  document.getElementById('modalUrlInput').value = url;
+  populateFolderSelect(folderId);
+  document.getElementById('modalFolder').disabled = true;
+  document.getElementById('bookmarkModal').hidden = false;
+  setTimeout(() => document.getElementById('modalTitleInput').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('bookmarkModal').hidden = true;
+  document.getElementById('modalFolder').disabled = false;
+}
+
+function populateFolderSelect(selectedId) {
+  const sel = document.getElementById('modalFolder');
+  sel.innerHTML = '';
+  for (const f of allFolders) {
+    if (!f.parentTitle && f.parentTitle !== '') continue; // skip root
+    const opt = document.createElement('option');
+    opt.value = f.id;
+    if (f.parentTitle === '') {
+      opt.textContent = f.title;
+    } else {
+      opt.textContent = '  ' + f.title;
+    }
+    if (selectedId && f.id === selectedId) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+async function saveBookmark() {
+  const title = document.getElementById('modalTitleInput').value.trim();
+  const url = document.getElementById('modalUrlInput').value.trim();
+  const folderId = document.getElementById('modalFolder').value;
+
+  if (!title) {
+    document.getElementById('modalTitleInput').focus();
+    document.getElementById('modalTitleInput').style.borderColor = 'var(--danger)';
+    return;
+  }
+  if (!url) {
+    document.getElementById('modalUrlInput').focus();
+    document.getElementById('modalUrlInput').style.borderColor = 'var(--danger)';
+    return;
+  }
+
+  let finalUrl = url;
+  if (!/^https?:\/\//i.test(url)) finalUrl = 'https://' + url;
+
+  try {
+    if (modalMode === 'add') {
+      await chrome.bookmarks.create({ parentId: folderId, title, url: finalUrl });
+    } else {
+      await chrome.bookmarks.update(editingBookmarkId, { title, url: finalUrl });
+    }
+    closeModal();
+    loadBookmarks();
+  } catch {
+    handleDemoCrud(modalMode, { id: editingBookmarkId, title, url: finalUrl, parentId: folderId });
+    closeModal();
+    loadBookmarks();
+  }
+}
+
+function handleDemoCrud(mode, data) {
+  if (mode === 'add') {
+    const folder = allFolders.find(f => f.id === data.parentId);
+    if (folder) {
+      const newId = 'demo_' + Date.now();
+      folder.bookmarks.push({ id: newId, title: data.title, url: data.url });
+      allBookmarks.push({ id: newId, title: data.title, url: data.url, parentTitle: folder.title });
+    }
+  } else if (mode === 'edit') {
+    for (const folder of allFolders) {
+      const bm = folder.bookmarks.find(b => b.id === data.id);
+      if (bm) { bm.title = data.title; bm.url = data.url; break; }
+    }
+    const bm = allBookmarks.find(b => b.id === data.id);
+    if (bm) { bm.title = data.title; bm.url = data.url; }
+  } else if (mode === 'delete') {
+    for (const folder of allFolders) {
+      const idx = folder.bookmarks.findIndex(b => b.id === data.id);
+      if (idx !== -1) { folder.bookmarks.splice(idx, 1); break; }
+    }
+    const bmIdx = allBookmarks.findIndex(b => b.id === data.id);
+    if (bmIdx !== -1) allBookmarks.splice(bmIdx, 1);
+  }
+}
+
+async function deleteBookmark(bmId) {
+  try {
+    await chrome.bookmarks.remove(bmId);
+  } catch {
+    handleDemoCrud('delete', { id: bmId });
+  }
+  hideDeleteToast();
+  loadBookmarks();
+}
+
+function showDeleteToast(bmId, title) {
+  const toast = document.getElementById('deleteToast');
+  toast.querySelector('.delete-toast-msg').textContent = '确定删除「' + title + '」？';
+  toast.dataset.bmId = bmId;
+  toast.hidden = false;
+}
+
+function hideDeleteToast() {
+  const toast = document.getElementById('deleteToast');
+  delete toast.dataset.folderId;
+  toast.hidden = true;
+}
+
+async function deleteFolder(folderId) {
+  try {
+    await chrome.bookmarks.removeTree(folderId);
+  } catch {
+    // Demo mode: remove folder and its bookmarks from local state
+    const folder = allFolders.find(f => f.id === folderId);
+    if (folder) {
+      for (const bm of folder.bookmarks) {
+        const bmIdx = allBookmarks.findIndex(b => b.id === bm.id);
+        if (bmIdx !== -1) allBookmarks.splice(bmIdx, 1);
+      }
+      // Also remove bookmarks in subfolders
+      for (const sub of folder.subFolders) {
+        const sf = allFolders.find(f => f.id === sub.id);
+        if (sf) {
+          for (const bm of sf.bookmarks) {
+            const bmIdx = allBookmarks.findIndex(b => b.id === bm.id);
+            if (bmIdx !== -1) allBookmarks.splice(bmIdx, 1);
+          }
+          const sfIdx = allFolders.findIndex(f => f.id === sub.id);
+          if (sfIdx !== -1) allFolders.splice(sfIdx, 1);
+        }
+      }
+      const fIdx = allFolders.findIndex(f => f.id === folderId);
+      if (fIdx !== -1) allFolders.splice(fIdx, 1);
+    }
+  }
+  hideDeleteToast();
+  loadBookmarks();
+}
+
+function showDeleteFolderToast(folderId, title) {
+  const toast = document.getElementById('deleteToast');
+  toast.querySelector('.delete-toast-msg').textContent = '确定删除分组「' + title + '」及其所有书签？';
+  toast.dataset.folderId = folderId;
+  toast.hidden = false;
+}
+
+/* ===== Folder Creation ===== */
+function openAddFolderModal() {
+  document.getElementById('folderNameInput').value = '';
+  document.getElementById('folderNameInput').style.borderColor = '';
+  document.getElementById('folderModal').hidden = false;
+  setTimeout(() => document.getElementById('folderNameInput').focus(), 100);
+}
+
+function closeFolderModal() {
+  document.getElementById('folderModal').hidden = true;
+}
+
+async function createFolder() {
+  const name = document.getElementById('folderNameInput').value.trim();
+  if (!name) {
+    document.getElementById('folderNameInput').focus();
+    document.getElementById('folderNameInput').style.borderColor = 'var(--danger)';
+    return;
+  }
+  try {
+    // Create in bookmarks bar (parentId '1') for top-level folders
+    await chrome.bookmarks.create({ parentId: '1', title: name });
+  } catch {
+    // Demo mode
+    const newId = 'demo_folder_' + Date.now();
+    allFolders.push({ id: newId, title: name, parentTitle: '书签栏', bookmarks: [], subFolders: [] });
+  }
+  closeFolderModal();
+  loadBookmarks();
+}
+
+/* ===== Icon Helper ===== */
+function icon(name) {
+  return '<i class="icon-' + name + '"></i>';
 }
 
 /* ===== Utility ===== */
