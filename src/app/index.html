@@ -66,8 +66,8 @@
     .pinned-bookmark:hover{background:var(--accent-light);border-color:var(--accent);transform:translateY(-1px)}
     .pinned-bookmark img{width:20px;height:20px;border-radius:4px;flex-shrink:0}
     .pinned-bookmark span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px;text-align:center;line-height:1.2}
-    .pinned-actions{position:absolute;top:2px;right:2px;display:flex;gap:2px;opacity:0;transition:opacity .25s ease}
-    .edit-mode .pinned-bookmark .pinned-actions{opacity:1}
+    .pinned-actions{position:absolute;top:2px;right:2px;display:flex;gap:2px;opacity:0;pointer-events:none;transition:opacity .25s ease}
+    .edit-mode .pinned-bookmark .pinned-actions{opacity:1;pointer-events:auto}
     .edit-mode .pinned-bookmark{padding-top:24px;height:80px}
     .pinned-action-btn{width:20px;height:20px;border-radius:4px;border:none;background:var(--glass-bg);backdrop-filter:blur(4px);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;transition:all .15s}
     .pinned-action-btn:hover{transform:scale(1.2)}
@@ -163,8 +163,8 @@
     .btn-primary{padding:10px 22px;border-radius:8px;border:none;background:var(--accent-gradient);color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
     .btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 16px var(--accent-glow)}
     .btn-primary:active{transform:scale(.97)}
-    .bookmark-actions{position:absolute;top:4px;right:4px;display:flex;align-items:center;gap:4px;opacity:0;transition:opacity .2s}
-    .edit-mode .bookmark-card .bookmark-actions{opacity:1}
+    .bookmark-actions{position:absolute;top:4px;right:4px;display:flex;align-items:center;gap:4px;opacity:0;pointer-events:none;transition:opacity .2s}
+    .edit-mode .bookmark-card .bookmark-actions{opacity:1;pointer-events:auto}
     .edit-mode .bookmark-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.12);border-color:var(--accent)}
     .edit-mode .bookmark-card{padding-top:32px}
     .bookmark-action-btn{width:26px;height:26px;border-radius:6px;border:1px solid var(--glass-border);background:var(--glass-bg);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;backdrop-filter:var(--glass-blur);box-shadow:0 1px 4px rgba(0,0,0,.08)}
@@ -185,10 +185,24 @@
     .add-fab:active{transform:scale(.95)}
     .add-folder-btn{padding:6px 14px;border-radius:8px;border:1px dashed var(--glass-border);background:transparent;color:var(--accent);font-size:13px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:5px;font-family:inherit;font-weight:500;margin-left:auto}
     .add-folder-btn:hover{border-color:var(--accent);background:var(--accent-light)}
-    .group-card-delete{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:4px;border:none;background:var(--glass-bg);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;opacity:0;transition:opacity .2s;backdrop-filter:var(--glass-blur);z-index:2}
+    .group-card-delete{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:4px;border:none;background:var(--glass-bg);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;opacity:0;pointer-events:none;transition:opacity .2s;backdrop-filter:var(--glass-blur);z-index:2}
     .group-card-delete:hover{color:var(--danger);background:rgba(255,71,87,.15);transform:scale(1.2)}
-    .edit-mode .group-card .group-card-delete{opacity:1}
+    .edit-mode .group-card .group-card-delete{opacity:1;pointer-events:auto}
     .edit-mode .group-card{padding-top:20px}
+    .group-card.dragging,.bookmark-card.dragging,.pinned-bookmark.dragging{opacity:0;pointer-events:none;transition:opacity .2s ease}
+    .group-card.drag-over{border-color:var(--accent);background:var(--accent-light);box-shadow:0 0 20px var(--accent-glow);transform:translateY(-2px) scale(1.02)}
+    .bookmark-card.drag-over,.pinned-bookmark.drag-over{border-color:var(--accent);background:var(--accent-light);box-shadow:0 0 12px var(--accent-glow)}
+    .edit-mode .group-card{cursor:grab}
+    .edit-mode .group-card:active{cursor:grabbing}
+    .edit-mode .bookmark-card{cursor:grab}
+    .edit-mode .bookmark-card:active{cursor:grabbing}
+    .edit-mode .pinned-bookmark{cursor:grab}
+    .edit-mode .pinned-bookmark:active{cursor:grabbing}
+    .drag-indicator{position:fixed;pointer-events:none;z-index:99998;display:none;background:var(--accent);border-radius:3px;box-shadow:0 0 20px var(--accent-glow),0 0 40px var(--accent-glow);transition:opacity .12s ease}
+    .drag-indicator.visible{display:block}
+    .drop-placeholder{border:2.5px dashed var(--accent);border-radius:var(--card-radius);background:var(--accent-light);box-shadow:0 0 24px var(--accent-glow),inset 0 0 30px rgba(124,106,255,0.06);flex-shrink:0;display:flex;align-items:center;justify-content:center;animation:phIn .2s ease-out}
+    .drop-placeholder::after{content:'+';font-size:28px;font-weight:200;color:var(--accent);opacity:0.5}
+    @keyframes phIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
   </style>
 </head>
 <body data-theme="light" id="appBody">
@@ -343,6 +357,6 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>

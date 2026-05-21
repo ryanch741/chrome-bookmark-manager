@@ -1069,6 +1069,33 @@ body.has-bg-image::before {
 .edit-mode .group-card .group-card-delete { opacity: 1; }
 .edit-mode .group-card { padding-top: 20px; }
 
+/* ===== Drag & Drop ===== */
+.group-card.dragging,
+.bookmark-card.dragging,
+.pinned-bookmark.dragging {
+  opacity: 0.4;
+  transform: scale(0.95);
+  pointer-events: none;
+}
+.group-card.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  box-shadow: 0 0 20px var(--accent-glow);
+  transform: translateY(-2px) scale(1.02);
+}
+.bookmark-card.drag-over,
+.pinned-bookmark.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+.edit-mode .group-card { cursor: grab; }
+.edit-mode .group-card:active { cursor: grabbing; }
+.edit-mode .bookmark-card { cursor: grab; }
+.edit-mode .bookmark-card:active { cursor: grabbing; }
+.edit-mode .pinned-bookmark { cursor: grab; }
+.edit-mode .pinned-bookmark:active { cursor: grabbing; }
+
 /* ===== Add Folder Button ===== */
 .add-folder-btn {
   padding: 6px 14px;

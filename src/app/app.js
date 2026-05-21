@@ -14,6 +14,7 @@ function init() {
   loadSettings().then(() => {
     loadBookmarks();
     setupEventListeners();
+    setupDragDrop();
     applyTheme();
     // Follow system theme changes if using auto
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -117,13 +118,14 @@ function renderGroups(filterFolders) {
     const pinnedBms = [];
     for (const rf of rootFolders) {
       for (const bm of rf.bookmarks) {
-        pinnedBms.push(bm);
+        pinnedBms.push({ bm, folderId: rf.id });
       }
     }
     if (pinnedBms.length > 0) {
       const ps = document.createElement('div');
       ps.className = 'pinned-bookmarks glass';
-      for (const bm of pinnedBms) {
+      for (const item of pinnedBms) {
+        const bm = item.bm;
         try {
           const url = new URL(bm.url);
           const link = document.createElement('a');
@@ -133,6 +135,8 @@ function renderGroups(filterFolders) {
           link.dataset.bmId = bm.id;
           link.dataset.bmTitle = bm.title || url.hostname;
           link.dataset.bmUrl = bm.url;
+          link.dataset.bmFolderId = item.folderId;
+          link.draggable = true;
           link.innerHTML = '<img src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(url.hostname) + '&sz=32" alt=""> <span>' + esc(bm.title || url.hostname) + '</span>'
             + '<div class="pinned-actions">'
             + '<button class="pinned-action-btn edit" title="编辑">' + icon('edit') + '</button>'
@@ -150,15 +154,23 @@ function renderGroups(filterFolders) {
       const card = document.createElement('div');
       card.className = 'group-card glass';
       card.dataset.folderId = folder.id;
+      card.draggable = true;
       card.innerHTML = `
         <div class="group-card-icon">${icon('folder')}</div>
         <div class="group-card-title">${esc(folder.title)}</div>
         <div class="group-card-count">${folder.bookmarks.length} 个书签${folder.subFolders.length ? ' · ' + folder.subFolders.length + ' 个子分组' : ''}</div>
         <button class="group-card-delete" title="删除分组">${icon('trash')}</button>
       `;
-      card.addEventListener('mouseenter', () => showPreview(folder, card));
+      card.addEventListener('mouseenter', () => {
+        if (editMode) return;
+        showPreview(folder, card);
+      });
       card.addEventListener('mouseleave', () => scheduleHidePreview());
       card.addEventListener('click', () => {
+        if (editMode) {
+          // In edit mode, preview is blocked; folder navigation is allowed.
+          // The delegated click handler blocks bookmark link navigation.
+        }
         currentFilter = folder.id;
         navStack = [];
         updateActiveFilter();
@@ -187,7 +199,7 @@ function renderGroups(filterFolders) {
           if (bm.title.toLowerCase().includes(q)) {
             try {
               const url = new URL(bm.url);
-              html += '<a href="' + esc(bm.url) + '" class="bookmark-card glass" target="_blank"'
+              html += '<a href="' + esc(bm.url) + '" class="bookmark-card glass" target="_blank" draggable="true"'
                 + ' data-bm-id="' + esc(bm.id) + '"'
                 + ' data-bm-title="' + esc(bm.title) + '"'
                 + ' data-bm-url="' + esc(bm.url) + '"'
@@ -237,15 +249,19 @@ function renderGroups(filterFolders) {
         const card = document.createElement('div');
         card.className = 'group-card glass search-matched-card';
         card.dataset.folderId = folder.id;
+        card.draggable = true;
         card.innerHTML = `
           <div class="group-card-icon">${icon('folder')}</div>
-          <div class="group-card-title">${highlightText(esc(folder.title), esc(searchQuery))}</div>
           <div class="group-card-count">${folder.bookmarks.length} 个书签${folder.subFolders.length ? ' · ' + folder.subFolders.length + ' 个子分组' : ''}</div>
           <button class="group-card-delete" title="删除分组">${icon('trash')}</button>
         `;
-        card.addEventListener('mouseenter', () => showPreview(folder, card));
+        card.addEventListener('mouseenter', () => {
+          if (editMode) return;
+          showPreview(folder, card);
+        });
         card.addEventListener('mouseleave', () => scheduleHidePreview());
-        card.addEventListener('click', () => {
+        card.addEventListener('click', (e) => {
+          if (editMode) return;
           currentFilter = folder.id;
           navStack = [];
           updateActiveFilter();
@@ -336,6 +352,7 @@ function renderFilteredView(folder) {
       el.dataset.bmTitle = bm.title;
       el.dataset.bmUrl = bm.url;
       el.dataset.folderId = folder.id;
+      el.draggable = true;
       el.innerHTML = `
         <img class="bookmark-card-favicon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(url.hostname)}&sz=32" alt="">
         <div class="bookmark-card-info">
@@ -719,6 +736,18 @@ function setupEventListeners() {
 
   // --- Delegated click handler for bookmark management ---
   document.getElementById('groupsContainer').addEventListener('click', (e) => {
+    // In edit mode, block bookmark navigation but allow folder navigation
+    if (editMode) {
+      const bookmarkLink = e.target.closest('.bookmark-card, .pinned-bookmark');
+      if (bookmarkLink) {
+        e.preventDefault();
+        // Still allow action buttons inside bookmarks
+        if (!e.target.closest('.bookmark-action-btn, .pinned-action-btn')) {
+          return;
+        }
+      }
+    }
+
     // Pinned bookmark action buttons (edit/delete)
     const pinnedAction = e.target.closest('.pinned-action-btn');
     if (pinnedAction) {
@@ -791,6 +820,261 @@ function setupEventListeners() {
       if (bmId) showDeleteToast(bmId, title);
     }
   });
+}
+
+/* ===== Drag & Drop Sorting ===== */
+let dragData = null;
+let _dragState = null;
+
+function setupDragDrop() {
+  const container = document.getElementById('groupsContainer');
+  if (container._dragEventsAttached) return;
+  container._dragEventsAttached = true;
+
+  // Create a single reusable placeholder element
+  const placeholder = document.createElement('div');
+  placeholder.className = 'drop-placeholder';
+
+  // Prevent native HTML5 drag from interfering with mouse-based drag
+  document.addEventListener('dragstart', (e) => {
+    if (editMode) {
+      e.preventDefault();
+      return false;
+    }
+  });
+
+  container.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    if (!editMode) return;
+    const card = e.target.closest('.group-card, .bookmark-card, .pinned-bookmark');
+    if (!card) return;
+    // Don't start drag on action buttons
+    if (e.target.closest('.group-card-delete, .bookmark-action-btn, .pinned-action-btn')) return;
+
+    _dragState = {
+      element: card,
+      startX: e.clientX,
+      startY: e.clientY,
+      active: false,
+      type: card.classList.contains('group-card') ? 'group' : 'bookmark',
+      id: card.dataset.bmId || card.dataset.folderId,
+      folderId: card.dataset.bmFolderId || card.dataset.folderId,
+      clone: null,
+      origRect: null,
+      dropTargetId: null,
+      dropPosition: 'before'
+    };
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!_dragState || !editMode) return;
+
+    const dx = e.clientX - _dragState.startX;
+    const dy = e.clientY - _dragState.startY;
+
+    if (!_dragState.active && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
+      // Activate drag
+      _dragState.active = true;
+
+      const orig = _dragState.element;
+      const rect = orig.getBoundingClientRect();
+      _dragState.origRect = rect;
+
+      // Collapse original in layout so it doesn't leave an empty gap
+      _dragState.origDisplay = orig.style.display;
+      orig.style.display = 'none';
+
+      // Create visual clone using saved dimensions
+      const clone = orig.cloneNode(true);
+      // Remove cloned display:none so the clone is visible
+      clone.style.display = '';
+      clone.style.position = 'fixed';
+      clone.style.pointerEvents = 'none';
+      clone.style.zIndex = '99999';
+      clone.style.opacity = '0.85';
+      clone.style.width = rect.width + 'px';
+      clone.style.transform = 'scale(1.05) rotate(1deg)';
+      clone.style.borderRadius = '12px';
+      clone.style.boxShadow = '0 16px 48px rgba(0,0,0,0.3)';
+      clone.style.transition = 'none';
+      const btns = clone.querySelectorAll('.group-card-delete, .bookmark-action-btn, .pinned-action-btn');
+      btns.forEach(b => b.remove());
+      clone.style.left = rect.left + 'px';
+      clone.style.top = rect.top + 'px';
+      clone.classList.add('drag-clone');
+      document.body.appendChild(clone);
+      _dragState.clone = clone;
+
+      dragData = { type: _dragState.type, id: _dragState.id, folderId: _dragState.folderId };
+    }
+
+    if (_dragState.active && _dragState.clone) {
+      // Move clone to follow cursor
+      const startRect = _dragState.origRect;
+      _dragState.clone.style.left = (startRect.left + dx) + 'px';
+      _dragState.clone.style.top = (startRect.top + dy) + 'px';
+
+      // Find closest card by distance (stable — not affected by layout shifts)
+      const closest = findClosestCard(e.clientX, e.clientY, _dragState.type);
+      let foundValidTarget = false;
+
+      if (closest && isValidDropTarget(closest)) {
+        const rect = closest.getBoundingClientRect();
+        const newPosition = _dragState.type === 'group'
+          ? (e.clientX < rect.left + rect.width / 2 ? 'before' : 'after')
+          : (e.clientY < rect.top + rect.height / 2 ? 'before' : 'after');
+        const newId = closest.dataset.bmId || closest.dataset.folderId;
+
+        if (newId === _dragState.dropTargetId && newPosition === _dragState.dropPosition) {
+          // Same target, same side — do nothing to avoid flicker
+          foundValidTarget = true;
+        } else {
+          // Target or position changed — update placeholder
+          if (placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
+          document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+
+          placeholder.style.width = rect.width + 'px';
+          placeholder.style.height = rect.height + 'px';
+          closest.classList.add('drag-over');
+
+          if (newPosition === 'before') {
+            closest.parentNode.insertBefore(placeholder, closest);
+          } else {
+            closest.parentNode.insertBefore(placeholder, closest.nextElementSibling);
+          }
+
+          _dragState.dropTargetId = newId;
+          _dragState.dropPosition = newPosition;
+          foundValidTarget = true;
+        }
+      }
+
+      if (!foundValidTarget) {
+        // Not over a valid drop zone — clear placeholder
+        if (placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        _dragState.dropTargetId = null;
+      }
+    }
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (!_dragState) return;
+
+    // Remove placeholder from DOM
+    if (placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
+
+    // Restore original card display before any re-render
+    if (_dragState.element && _dragState.origDisplay !== undefined) {
+      _dragState.element.style.display = _dragState.origDisplay;
+    }
+
+    if (_dragState.active && _dragState.clone && _dragState.dropTargetId) {
+      const targetId = _dragState.dropTargetId;
+      if (targetId !== _dragState.id) {
+        if (_dragState.type === 'group') {
+          reorderGroups(_dragState.id, targetId, _dragState.dropPosition);
+        } else {
+          reorderBookmarks(_dragState.id, targetId, _dragState.folderId, _dragState.dropPosition);
+        }
+      }
+    }
+
+    // Cleanup
+    if (_dragState.clone && _dragState.clone.parentNode) {
+      _dragState.clone.parentNode.removeChild(_dragState.clone);
+    }
+    document.querySelectorAll('.dragging, .drag-clone').forEach(el => el.classList.remove('dragging', 'drag-clone'));
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    dragData = null;
+    _dragState = null;
+  });
+}
+
+function findClosestCard(x, y, dragType) {
+  const selector = dragType === 'group' ? '.group-card' : '.bookmark-card, .pinned-bookmark';
+  const items = document.querySelectorAll(selector);
+  let closest = null;
+  let minDist = Infinity;
+  for (const item of items) {
+    if (item.classList.contains('dragging') || item.classList.contains('drag-clone')) continue;
+    const r = item.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const d = Math.hypot(x - cx, y - cy);
+    if (d < minDist) { minDist = d; closest = item; }
+  }
+  return closest;
+}
+
+function isValidDropTarget(target) {
+  if (!_dragState || !dragData) return false;
+  const isTargetGroup = target.classList.contains('group-card');
+  if (dragData.type === 'group') return isTargetGroup;
+  return target.classList.contains('bookmark-card') || target.classList.contains('pinned-bookmark');
+}
+
+async function reorderGroups(fromId, toId, position) {
+  const fromIdx = allFolders.findIndex(f => f.id === fromId);
+  const toIdx = allFolders.findIndex(f => f.id === toId);
+  if (fromIdx === -1 || toIdx === -1) return;
+
+  const [moved] = allFolders.splice(fromIdx, 1);
+  const newToIdx = allFolders.findIndex(f => f.id === toId);
+  if (newToIdx !== -1) {
+    if (position === 'after') {
+      allFolders.splice(newToIdx + 1, 0, moved);
+    } else {
+      allFolders.splice(newToIdx, 0, moved);
+    }
+  }
+
+  // Try Chrome API
+  try {
+    const parentId = moved.parentTitle === '' ? '1' : allFolders.find(f => f.title === moved.parentTitle)?.id;
+    if (parentId) {
+      await chrome.bookmarks.move(fromId, { parentId, index: newToIdx });
+    }
+  } catch { /* demo mode, ignore */ }
+
+  renderGroups();
+  updateStats();
+}
+
+async function reorderBookmarks(fromId, toId, folderId, position) {
+  const srcFolder = allFolders.find(f => f.id === folderId);
+  if (!srcFolder) return;
+
+  const bmIdx = srcFolder.bookmarks.findIndex(b => b.id === fromId);
+  if (bmIdx === -1) return;
+
+  const [movedBm] = srcFolder.bookmarks.splice(bmIdx, 1);
+
+  const toBmIdx = srcFolder.bookmarks.findIndex(b => b.id === toId);
+  if (toBmIdx !== -1) {
+    if (position === 'after') {
+      srcFolder.bookmarks.splice(toBmIdx + 1, 0, movedBm);
+    } else {
+      srcFolder.bookmarks.splice(toBmIdx, 0, movedBm);
+    }
+  } else {
+    srcFolder.bookmarks.push(movedBm);
+  }
+
+  // Try Chrome API
+  try {
+    const newIdx = srcFolder.bookmarks.findIndex(b => b.id === fromId);
+    if (newIdx !== -1) {
+      await chrome.bookmarks.move(fromId, { parentId: srcFolder.id, index: newIdx });
+    }
+  } catch { /* demo mode, ignore */ }
+
+  if (currentFilter !== 'all') {
+    const folder = allFolders.find(f => f.id === currentFilter);
+    if (folder) { renderFilteredView(folder); updateStats(); return; }
+  }
+  renderGroups();
+  updateStats();
 }
 
 /* ===== Dev Demo Data ===== */
