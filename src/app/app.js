@@ -137,7 +137,7 @@ function renderGroups(filterFolders) {
           link.dataset.bmUrl = bm.url;
           link.dataset.bmFolderId = item.folderId;
           link.draggable = true;
-          link.innerHTML = '<img src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(url.hostname) + '&sz=32" alt=""> <span>' + esc(bm.title || url.hostname) + '</span>'
+          link.innerHTML = '<img src="' + faviconUrl(bm.url, 32) + '" alt=""> <span>' + esc(bm.title || url.hostname) + '</span>'
             + '<div class="pinned-actions">'
             + '<button class="pinned-action-btn edit" title="编辑">' + icon('edit') + '</button>'
             + '<button class="pinned-action-btn delete" title="删除">' + icon('trash') + '</button>'
@@ -204,7 +204,7 @@ function renderGroups(filterFolders) {
                 + ' data-bm-title="' + esc(bm.title) + '"'
                 + ' data-bm-url="' + esc(bm.url) + '"'
                 + ' data-folder-id="' + folder.id + '">'
-                + '<img class="bookmark-card-favicon" src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(url.hostname) + '&sz=32" alt="">'
+                + '<img class="bookmark-card-favicon" src="' + faviconUrl(bm.url, 32) + '" alt="">'
                 + '<div class="bookmark-card-info">'
                 + '<div class="bookmark-card-title">' + highlightText(esc(bm.title), esc(q)) + '</div>'
                 + '<div class="bookmark-card-url">' + esc(url.hostname) + '</div>'
@@ -354,7 +354,7 @@ function renderFilteredView(folder) {
       el.dataset.folderId = folder.id;
       el.draggable = true;
       el.innerHTML = `
-        <img class="bookmark-card-favicon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(url.hostname)}&sz=32" alt="">
+        <img class="bookmark-card-favicon" src="${faviconUrl(bm.url, 32)}" alt="">
         <div class="bookmark-card-info">
           <div class="bookmark-card-title">${esc(bm.title)}</div>
           <div class="bookmark-card-url">${esc(url.hostname)}</div>
@@ -397,7 +397,7 @@ function showPreview(folder, card) {
       try {
         const url = new URL(bm.url);
         html += '<a href="' + esc(bm.url) + '" class="bookmark-link" target="_blank" title="' + esc(bm.title) + '">'
-          + '<img class="favicon" src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(url.hostname) + '&sz=16" alt="">'
+          + '<img class="favicon" src="' + faviconUrl(bm.url, 16) + '" alt="">'
           + '<span>' + (esc(bm.title) || esc(url.hostname)) + '</span></a>';
       } catch {
         html += '<a href="' + esc(bm.url) + '" class="bookmark-link" target="_blank"><span>' + esc(bm.title) + '</span></a>';
@@ -481,7 +481,7 @@ function buildSubLinks(folder) {
     try {
       const url = new URL(bm.url);
       html += '<a href="' + esc(bm.url) + '" class="bookmark-link" target="_blank" title="' + esc(bm.title) + '">'
-        + '<img class="favicon" src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(url.hostname) + '&sz=16" alt="">'
+        + '<img class="favicon" src="' + faviconUrl(bm.url, 16) + '" alt="">'
         + '<span>' + (esc(bm.title) || esc(url.hostname)) + '</span></a>';
     } catch {
       html += '<a href="' + esc(bm.url) + '" class="bookmark-link" target="_blank"><span>' + esc(bm.title) + '</span></a>';
@@ -622,7 +622,10 @@ function setupEventListeners() {
 
   // Delegated error handler for favicon images (CSP-safe, no inline onerror)
   document.getElementById('groupsContainer').addEventListener('error', e => {
-    if (e.target.tagName === 'IMG') e.target.style.display = 'none';
+    if (e.target.tagName === 'IMG' && !e.target.dataset.fb) {
+      e.target.dataset.fb = '1';
+      e.target.src = DEFAULT_FAVICON;
+    }
   }, true);
 
   const bgBtn = document.getElementById('bgSettingsBtn');
@@ -757,8 +760,9 @@ function setupEventListeners() {
       const bmId = pinned.dataset.bmId;
       const title = pinned.dataset.bmTitle;
       const url = pinned.dataset.bmUrl;
+      const folderId = pinned.dataset.bmFolderId;
       if (pinnedAction.classList.contains('edit') && bmId) {
-        openEditModal(bmId, title, url);
+        openEditModal(bmId, title, url, folderId);
       } else if (pinnedAction.classList.contains('delete') && bmId) {
         showDeleteToast(bmId, title);
       }
@@ -1159,14 +1163,12 @@ function openEditModal(bmId, title, url, folderId) {
   document.getElementById('modalTitleInput').value = title;
   document.getElementById('modalUrlInput').value = url;
   populateFolderSelect(folderId);
-  document.getElementById('modalFolder').disabled = true;
   document.getElementById('bookmarkModal').hidden = false;
   setTimeout(() => document.getElementById('modalTitleInput').focus(), 100);
 }
 
 function closeModal() {
   document.getElementById('bookmarkModal').hidden = true;
-  document.getElementById('modalFolder').disabled = false;
 }
 
 function populateFolderSelect(selectedId) {
@@ -1210,13 +1212,26 @@ async function saveBookmark() {
       await chrome.bookmarks.create({ parentId: folderId, title, url: finalUrl });
     } else {
       await chrome.bookmarks.update(editingBookmarkId, { title, url: finalUrl });
+      // Move bookmark to new folder if changed
+      if (editingFolderId && editingFolderId !== folderId) {
+        await chrome.bookmarks.move(editingBookmarkId, { parentId: folderId });
+      }
     }
     closeModal();
-    loadBookmarks();
+    await loadBookmarks();
+    // Stay in current folder view if inside a folder
+    if (currentFilter !== 'all') {
+      const folder = allFolders.find(f => f.id === currentFilter);
+      if (folder) renderFilteredView(folder);
+    }
   } catch {
     handleDemoCrud(modalMode, { id: editingBookmarkId, title, url: finalUrl, parentId: folderId });
     closeModal();
-    loadBookmarks();
+    await loadBookmarks();
+    if (currentFilter !== 'all') {
+      const folder = allFolders.find(f => f.id === currentFilter);
+      if (folder) renderFilteredView(folder);
+    }
   }
 }
 
@@ -1229,12 +1244,34 @@ function handleDemoCrud(mode, data) {
       allBookmarks.push({ id: newId, title: data.title, url: data.url, parentTitle: folder.title });
     }
   } else if (mode === 'edit') {
+    let moved = false;
     for (const folder of allFolders) {
-      const bm = folder.bookmarks.find(b => b.id === data.id);
-      if (bm) { bm.title = data.title; bm.url = data.url; break; }
+      const idx = folder.bookmarks.findIndex(b => b.id === data.id);
+      if (idx !== -1) {
+        const bm = folder.bookmarks[idx];
+        bm.title = data.title;
+        bm.url = data.url;
+        // Move to new folder if changed
+        if (data.parentId && folder.id !== data.parentId) {
+          folder.bookmarks.splice(idx, 1);
+          const newFolder = allFolders.find(f => f.id === data.parentId);
+          if (newFolder) {
+            newFolder.bookmarks.push(bm);
+            moved = true;
+          }
+        }
+        break;
+      }
     }
-    const bm = allBookmarks.find(b => b.id === data.id);
-    if (bm) { bm.title = data.title; bm.url = data.url; }
+    const bmEntry = allBookmarks.find(b => b.id === data.id);
+    if (bmEntry) {
+      bmEntry.title = data.title;
+      bmEntry.url = data.url;
+      if (data.parentId && moved) {
+        const newFolder = allFolders.find(f => f.id === data.parentId);
+        if (newFolder) bmEntry.parentTitle = newFolder.title;
+      }
+    }
   } else if (mode === 'delete') {
     for (const folder of allFolders) {
       const idx = folder.bookmarks.findIndex(b => b.id === data.id);
@@ -1335,6 +1372,37 @@ async function createFolder() {
   }
   closeFolderModal();
   loadBookmarks();
+}
+
+/* ===== Favicon Helper ===== */
+const DEFAULT_FAVICON = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%229%22 fill=%22none%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Cpath d=%22M12 3a5 9 0 010 18%22 fill=%22none%22 stroke=%22%23999%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M3 12a9 5 0 0018 0%22 fill=%22none%22 stroke=%22%23999%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3C/svg%3E';
+
+function hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) { const c = str.charCodeAt(i); hash = ((hash << 5) - hash) + c; hash |= 0; }
+  return Math.abs(hash);
+}
+
+function faviconUrl(pageUrl, size) {
+  // In extension context: use Chrome's native _favicon/ API (zero external requests)
+  try {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL) {
+      return chrome.runtime.getURL('_favicon/?pageUrl=' + encodeURIComponent(pageUrl) + '&size=' + size);
+    }
+  } catch (e) {}
+
+  // Fallback (e.g. local dev / demo mode): letter-based avatar
+  try {
+    const url = new URL(pageUrl);
+    const hostname = url.hostname;
+    const letter = hostname.charAt(0).toUpperCase();
+    const hue = hashCode(hostname) % 360;
+    const color = 'hsl(' + hue + ',50%,30%)';
+    const bg = 'hsl(' + hue + ',55%,82%)';
+    return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" fill="' + bg + '"/><text x="12" y="17" text-anchor="middle" font-size="14" font-weight="600" fill="' + color + '" font-family="-apple-system,sans-serif">' + letter + '</text></svg>');
+  } catch (e) {
+    return DEFAULT_FAVICON;
+  }
 }
 
 /* ===== Icon Helper ===== */
