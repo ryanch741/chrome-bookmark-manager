@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f0c29"/>
+      <stop offset="50%" stop-color="#302b63"/>
+      <stop offset="100%" stop-color="#24243e"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.08)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.04)"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7c6aff"/>
+      <stop offset="100%" stop-color="#b86aff"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="8" flood-color="rgba(0,0,0,0.2)"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="800" fill="url(#bg)"/>
+
+  <!-- Radial decoration -->
+  <ellipse cx="256" cy="240" rx="400" ry="400" fill="rgba(124,106,255,0.08)"/>
+  <ellipse cx="1024" cy="560" rx="400" ry="400" fill="rgba(184,106,255,0.06)"/>
+
+  <!-- Top Bar -->
+  <g transform="translate(16, 10)">
+    <rect x="0" y="0" width="1248" height="44" rx="16" fill="url(#glass)" stroke="rgba(255,255,255,0.12)" stroke-width="1" filter="url(#shadow)"/>
+    <text x="18" y="28" font-size="17" font-weight="700" fill="#f0f0f0">📑 书签管理</text>
+
+    <!-- Search Box -->
+    <rect x="364" y="8" width="520" height="28" rx="10" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+    <text x="376" y="26" font-size="12" fill="rgba(255,255,255,0.35)">🔍 搜索书签名称或分组...</text>
+
+    <!-- Action Buttons -->
+    <rect x="1140" y="5" width="34" height="34" rx="8" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+    <text x="1153" y="28" font-size="16" fill="#f0f0f0" text-anchor="middle">✏️</text>
+
+    <rect x="1180" y="5" width="34" height="34" rx="8" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+    <text x="1193" y="28" font-size="16" fill="#f0f0f0" text-anchor="middle">☀️</text>
+
+    <rect x="1220" y="5" width="34" height="34" rx="8" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+    <text x="1233" y="28" font-size="16" fill="#f0f0f0" text-anchor="middle">🖼</text>
+  </g>
+
+  <!-- Folder Detail -->
+  <g transform="translate(126, 74)">
+    <rect x="0" y="0" width="1028" height="480" rx="16" fill="url(#glass)" stroke="rgba(255,255,255,0.12)" stroke-width="1" filter="url(#shadow)"/>
+
+    <!-- Header -->
+    <rect x="20" y="16" width="30" height="30" rx="8" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+    <text x="32" y="36" font-size="18" fill="rgba(255,255,255,0.65)" text-anchor="middle">←</text>
+
+    <text x="60" y="38" font-size="20">📂</text>
+    <text x="88" y="38" font-size="18" font-weight="700" fill="#f0f0f0">开发工具</text>
+
+    <rect x="180" y="14" height="34" rx="8" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="190" y="35" font-size="13" fill="#7c6aff">+ 添加书签</text>
+
+    <line x1="20" y1="58" x2="1008" y2="58" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+
+    <!-- Subfolders Section -->
+    <text x="22" y="84" font-size="11" fill="rgba(255,255,255,0.65)" font-weight="600" letter-spacing="1">子分组</text>
+
+    <!-- Subfolder: React 资源 -->
+    <g transform="translate(22, 96)">
+      <rect x="0" y="0" width="140" height="100" rx="16" fill="url(#glass)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+      <text x="70" y="30" font-size="22" text-anchor="middle">📂</text>
+      <text x="70" y="52" font-size="12" font-weight="600" fill="#f0f0f0" text-anchor="middle">React 资源</text>
+      <text x="70" y="70" font-size="10" fill="rgba(255,255,255,0.35)" text-anchor="middle">2 个书签</text>
+    </g>
+
+    <!-- Subfolder: CSS 工具 -->
+    <g transform="translate(174, 96)">
+      <rect x="0" y="0" width="140" height="100" rx="16" fill="url(#glass)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+      <text x="70" y="30" font-size="22" text-anchor="middle">📂</text>
+      <text x="70" y="52" font-size="12" font-weight="600" fill="#f0f0f0" text-anchor="middle">CSS 工具</text>
+      <text x="70" y="70" font-size="10" fill="rgba(255,255,255,0.35)" text-anchor="middle">2 个书签</text>
+    </g>
+
+    <!-- Bookmarks Section -->
+    <text x="22" y="220" font-size="11" fill="rgba(255,255,255,0.65)" font-weight="600" letter-spacing="1">书签</text>
+
+    <!-- Bookmark cards in a 3-column grid -->
+    <!-- Row 1 -->
+    <g>
+      <rect x="22" y="232" width="304" height="48" rx="10" fill="url(#glass)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+      <circle cx="40" cy="256" r="10" fill="#333"/>
+      <text x="40" y="260" font-size="9" font-weight="600" fill="white" text-anchor="middle">G</text>
+      <text x="60" y="250" font-size="13" font-weight="500" fill="#f0f0f0">GitHub</text>
+      <text x="60" y="268" font-size="10" fill="rgba(255,255,255,0.35)">github.com</text>
+    </g>
+
+    <g transform="translate(352, 0)">
+      <rect x="22" y="232" width="304" height="48" rx="10" fill="url(#glass)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+      <circle cx="40" cy="256" r="10" fill="#F48024"/>
+      <text x="40" y="260" font-size="9" font-weight="600" fill="white" text-anchor="middle">S</text>
+      <text x="60" y="250" font-size="13" font-weight="500" fill="#f0f0f0">Stack Overflow</text>
+      <text x="60" y="268" font-size="10" fill="rgba(255,255,255,0.35)">stackoverflow.com</text>
+    </g>
+
+    <g transform="translate(682, 0)">
+      <rect x="22" y="232" width="304" height="48" rx="10" fill="url(#glass)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+      <circle cx="40" cy="256" r="10" fill="#8B5CF6"/>
+      <text x="40" y="260" font-size="9" font-weight="600" fill="white" text-anchor="middle">M</text>
+      <text x="60" y="250" font-size="13" font-weight="500" fill="#f0f0f0">MDN Web Docs</text>
+      <text x="60" y="268" font-size="10" fill="rgba(255,255,255,0.35)">developer.mozilla.org</text>
+    </g>
+
+    <!-- Row 2 -->
+    <g transform="translate(0, 56)">
+      <rect x="22" y="232" width="304" height="48" rx="10" fill="url(#glass)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+      <circle cx="40" cy="256" r="10" fill="#000"/>
+      <text x="40" y="260" font-size="9" font-weight="600" fill="white" text-anchor="middle">C</text>
+      <text x="60" y="250" font-size="13" font-weight="500" fill="#f0f0f0">CodeSandbox</text>
+      <text x="60" y="268" font-size="10" fill="rgba(255,255,255,0.35)">codesandbox.io</text>
+    </g>
+
+    <g transform="translate(352, 56)">
+      <rect x="22" y="232" width="304" height="48" rx="10" fill="url(#glass)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+      <circle cx="40" cy="256" r="10" fill="#CB3837"/>
+      <text x="40" y="260" font-size="9" font-weight="600" fill="white" text-anchor="middle">n</text>
+      <text x="60" y="250" font-size="13" font-weight="500" fill="#f0f0f0">npm</text>
+      <text x="60" y="268" font-size="10" fill="rgba(255,255,255,0.35)">www.npmjs.com</text>
+    </g>
+  </g>
+
+  <!-- Stats Footer -->
+  <g transform="translate(16, 760)">
+    <rect x="0" y="0" width="1248" height="28" rx="10" fill="url(#glass)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+    <text x="460" y="18" font-size="12" fill="rgba(255,255,255,0.35)" text-anchor="middle">共 9 个分组 · 29 个书签</text>
+    <rect x="580" y="3" height="22" width="100" rx="8" fill="url(#accent)"/>
+    <text x="630" y="17" font-size="13" font-weight="600" fill="white" text-anchor="middle">❤️ 打赏支持</text>
+  </g>
+</svg>

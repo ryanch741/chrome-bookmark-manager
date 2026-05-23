@@ -25,9 +25,21 @@
 
 ---
 
+## 📸 Screenshots
+
+| Home Page (Light) | Home Page (Dark) |
+|---|---|
+| ![Home Light](screenshots/main-light.svg) | ![Preview Dark](screenshots/folder-detail.svg) |
+
+| Folder Detail |
+|---|
+| ![Folder Detail](screenshots/folder-detail.svg) |
+
+---
+
 ## 🔧 Installation (Developer Mode)
 
-> 💡 This is **completely free**. You don't need to pay the $5 Chrome Web Store registration fee. The extension works perfectly with no limitations.
+> 💡 This method loads the extension directly from your computer — no publishing required.
 
 ### 📥 Step 1: Get the Source Code
 
