@@ -37,6 +37,11 @@
   <br><em>Folder detail — dark theme</em>
 </p>
 
+<p align="center">
+  <img src="screenshots/hover-preview.svg" width="90%" alt="Hover Preview">
+  <br><em>Hover preview — floating multi-column popup with bookmarks and sub-folders</em>
+</p>
+
 ---
 
 ## 🔧 Installation (Developer Mode)

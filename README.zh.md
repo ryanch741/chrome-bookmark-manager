@@ -37,6 +37,11 @@
   <br><em>文件夹详情 — 深色主题</em>
 </p>
 
+<p align="center">
+  <img src="screenshots/hover-preview.svg" width="90%" alt="悬浮预览">
+  <br><em>悬浮预览 — 鼠标悬停分组时弹出的大尺寸多列预览窗</em>
+</p>
+
 ---
 
 ## 🔧 安装方法（开发者模式）
