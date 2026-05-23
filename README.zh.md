@@ -27,9 +27,15 @@
 
 ## 📸 效果图
 
-| 首页（浅色主题） | 文件夹详情（深色主题） |
-|---|---|
-| ![首页浅色](screenshots/main-light.svg) | ![文件夹详情](screenshots/folder-detail.svg) |
+<p align="center">
+  <img src="screenshots/main-light.svg" width="90%" alt="首页（浅色主题）">
+  <br><em>首页 — 浅色主题</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/folder-detail.svg" width="90%" alt="文件夹详情（深色主题）">
+  <br><em>文件夹详情 — 深色主题</em>
+</p>
 
 ---
 

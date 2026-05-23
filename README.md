@@ -27,13 +27,15 @@
 
 ## 📸 Screenshots
 
-| Home Page (Light) | Home Page (Dark) |
-|---|---|
-| ![Home Light](screenshots/main-light.svg) | ![Preview Dark](screenshots/folder-detail.svg) |
+<p align="center">
+  <img src="screenshots/main-light.svg" width="90%" alt="Home Page (Light Theme)">
+  <br><em>Home page — light theme</em>
+</p>
 
-| Folder Detail |
-|---|
-| ![Folder Detail](screenshots/folder-detail.svg) |
+<p align="center">
+  <img src="screenshots/folder-detail.svg" width="90%" alt="Folder Detail (Dark Theme)">
+  <br><em>Folder detail — dark theme</em>
+</p>
 
 ---
 
